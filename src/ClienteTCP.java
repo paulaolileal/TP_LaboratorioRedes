@@ -14,13 +14,12 @@ public class ClienteTCP {
     static ObjectInputStream sServIn;
     static ObjectOutputStream sSerOut;
 
+    // Envia mensagem para o servidor
     public static void enviarMsg( String msg ){
         try {
             if(sSerOut == null){
                 sSerOut = new ObjectOutputStream(socket.getOutputStream());
             }
-
-
             sSerOut.writeObject(msg);
             sSerOut.flush();
         } catch (IOException e) {
@@ -28,20 +27,21 @@ public class ClienteTCP {
         }
     }
 
+    // Recebe mensagem do servidor
     public static String receberMsg( ){
         String strMsg = "";
         try {
             if(sServIn == null){
                 sServIn = new ObjectInputStream(socket.getInputStream());
             }
-            strMsg = sServIn.readObject().toString(); //ESPERA (BLOQUEADO) POR UM PACOTE
+            strMsg = sServIn.readObject().toString();
         }catch (Exception e){
             e.printStackTrace();
         }
         return strMsg;
     }
 
-
+    // Conecta ao servidor
     public static void conectar( ){
         boolean sucesso = false;
         while(!sucesso) {
@@ -60,13 +60,13 @@ public class ClienteTCP {
         }
     }
 
-
-    //M�TODO PRINCIPAL DA CLASSE
     public static void main(String args[]) throws IOException {
         Gson gson = new Gson();
         Scanner ler = new Scanner(System.in);
+        System.out.println("O jogo já vai começar, entre com o seu nome: ");
+        String nome = ler.next();
         conectar();
-        enviarMsg("Nome do Jogador");
+        enviarMsg(nome);
         loopPrincipal:
         while(true) {
             String ms = receberMsg();
@@ -75,10 +75,10 @@ public class ClienteTCP {
                 case 0: // Receber carta
                     maoAtual.add(gson.fromJson(d.getMsg(), Carta.class));
                     break;
-                case 1: // Receber mensagem qualquer
+                case 1: // Receber uma mensagem qualquer
                     System.out.println(d.getMsg());
                     break;
-                case 2: // Enviar carta
+                case 2: // Enviar carta para o servidor
                     System.out.println("Sua mão é: ");
                     int i = 0;
                     for (Carta c : maoAtual) {
@@ -91,7 +91,7 @@ public class ClienteTCP {
                         System.out.println("-- Opção invalida! [0] ou [1] ou [2] ou [3]");
                         opcao = ler.nextInt();
                     }
-                    if(opcao == 3) {
+                    if(opcao == 3) { // Verifica se o jogador escolheu truco
                         enviarMsg(gson.toJson(new Carta("", "TRUCO")));
                         System.out.println("Agora escolha uma carta!");
                         opcao = ler.nextInt();
@@ -106,7 +106,7 @@ public class ClienteTCP {
                 case 3: // Esvaziar mão
                     maoAtual = new ArrayList<>();
                     break;
-                case 4:
+                case 4: // Aceitar truco
                     System.out.println("\nVai aceitar o truco? [0] - Não | [1] - Sim");
                     int op = ler.nextInt( );
                     while(op != 0 && op != 1) {
@@ -116,7 +116,7 @@ public class ClienteTCP {
                     enviarMsg(gson.toJson(op));
                     System.out.println("Aguarde seu parceiro decidir...");
                     break;
-                case 5:
+                case 5: // Desconectar do servidor
                     System.out.println(d.getMsg());
                     System.out.println("Desconectando...");
                     break loopPrincipal;

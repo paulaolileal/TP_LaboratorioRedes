@@ -6,14 +6,14 @@ import java.util.Collections;
 import java.util.List;
 import java.net.ServerSocket;
 import java.io.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 class Carta{
     String nipe;
     String valor;
 
-    public Carta( ){nipe = ""; valor = ""; }
+    public Carta( ){
+        nipe = ""; valor = "";
+    }
 
     public Carta( String nipe, String valor){
         this.nipe = nipe;
@@ -36,6 +36,7 @@ class Carta{
         this.valor = valor;
     }
 
+    // Compara qual carta é maior
     public static Carta compararCartas( Carta a, Carta b) {
         if( a.getValor().equals("") ){
             return b;
@@ -104,6 +105,7 @@ class Baralho{
 
     private static List<Carta> baralho = new ArrayList<Carta>( );
 
+    // Inicia o baralho
     private static void montarBaralho( ){
         baralho.add(new Carta("Ouro", "A"));
         baralho.add(new Carta("Ouro", "2"));
@@ -150,6 +152,7 @@ class Baralho{
         baralho.add(new Carta("Espada", "K"));
     }
 
+    // Embaralha as cartas
     public static void embaralhar( ){
         if(baralho.size() != 40){
             montarBaralho();
@@ -157,6 +160,7 @@ class Baralho{
         Collections.shuffle(baralho);
     }
 
+    // Saca 3 cartas para o jogador
     public static List<Carta> sacarCartas( ){
         List<Carta> maoDoJogador = new ArrayList<Carta>( );
         for(int i =0; i<3; i++){
@@ -171,7 +175,6 @@ class Jogador implements Runnable{
     String nome;
     Socket socket;
     String time;
-    protected BlockingQueue<Integer> inf = null;
 
     ObjectInputStream sServIn;
     ObjectOutputStream sSerOut;
@@ -179,7 +182,6 @@ class Jogador implements Runnable{
     public Jogador(Socket socket, String time) throws IOException{
         this.socket = socket;
         this.time = time;
-        this.inf = inf;
         sServIn = new ObjectInputStream(socket.getInputStream());
         sSerOut = new ObjectOutputStream(socket.getOutputStream());
     }
@@ -236,12 +238,6 @@ class Jogador implements Runnable{
         try {
             msgIn = sServIn.readObject();
             setNome(msgIn.toString());
-
-
-            while( true ){
-
-            }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -282,8 +278,7 @@ public class ServidorTCP{
 
     private static List<Jogador> jogadores;
 
-    private static int PONTOS = 0;
-
+    // Envia mensagem para todos os jogadores
     public static void espalharMsg(String msg){
         Gson gson = new Gson();
         for ( Jogador j: jogadores ) {
@@ -291,15 +286,13 @@ public class ServidorTCP{
         }
     }
 
-    //M�TODO PRINCIPAL DA CLASSE
     public static void main (String args[])	{
         jogadores = new ArrayList<Jogador>( );
         Gson gson = new Gson();
         int PortaServidor = 7000;
 
         try{
-
-            System.out.println(" -S- Aguardando conexao (P:"+PortaServidor+")...");
+            System.out.println(" Esperando por jogadores... (P:"+PortaServidor+")...");
 
             // ABRE O SERVIDOR
             ServerSocket socktServ = new ServerSocket(PortaServidor);
@@ -308,12 +301,9 @@ public class ServidorTCP{
             for(int i = 0; i<4; i++){
                 Socket conSer = socktServ.accept();
                 System.out.println(" -S- Conectado ao cliente ->" + conSer.toString());
-
                 Jogador jogador = new Jogador(conSer, i % 2 == 0 ? "Time A" : "Time B" );
                 new Thread( jogador ).start( );
-
                 jogador.enviarMsg(gson.toJson(new Dados(1, "Você está no "+jogador.getTime())));
-
                 jogadores.add(jogador);
             }
 
@@ -341,12 +331,9 @@ public class ServidorTCP{
                     for (Carta c: cartas) {
                         Dados h = new Dados(0, gson.toJson(c));
                         j.enviarMsg(gson.toJson(h));
-                        j.enviarMsg(gson.toJson(new Dados(1, "Aguardando jogadores...")));
                     }
                 }
-                espalharMsg("---------------------------------------------------");
                 espalharMsg("TIME A = "+pontosTimeA + " | TIME B = "+pontosTimeB);
-                espalharMsg("---------------------------------------------------");
 
                 // Inicia a rodada
                 loopPrincipal:
