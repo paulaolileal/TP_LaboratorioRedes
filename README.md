@@ -9,6 +9,7 @@
 ## Observação
 - Projeto desenvolvido no IntelliJ
 - São necessarios quatro clientes conectarem ao servidor para jogar
+- Para alterar o ip do host, altere a variavel "IPServidor" no cliente 
 
 ## Compilação no terminal 
 - Copie os arquivos, para algum lugar de sua preferência:
@@ -23,4 +24,7 @@
 - Em uma janela do terminal, execute:
 - Para servidor: java -cp gson-2.8.0.jar;. ServidorTCP
 - Para cliente: java -cp gson-2.8.0.jar;. ClienteTCP
+
+## Biblioteca externa
+- Gson - https://github.com/google/gson
 
