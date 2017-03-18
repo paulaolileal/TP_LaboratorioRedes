@@ -176,7 +176,7 @@ class Jogador implements Runnable{
     ObjectInputStream sServIn;
     ObjectOutputStream sSerOut;
 
-    public Jogador(Socket socket, String time, BlockingQueue<Integer> inf) throws IOException{
+    public Jogador(Socket socket, String time) throws IOException{
         this.socket = socket;
         this.time = time;
         this.inf = inf;
@@ -208,7 +208,7 @@ class Jogador implements Runnable{
         this.time = time;
     }
 
-    public void enviarCartaParaJogador(String msg) {
+    public void enviarMsg(String msg) {
         try {
             sSerOut.writeObject(msg);
             sSerOut.flush();
@@ -217,16 +217,8 @@ class Jogador implements Runnable{
         }
     }
 
-    public void enviarMsgParaJogador(String msg) {
-        try {
-            sSerOut.writeObject(msg);
-            sSerOut.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
-    public String receberCartaDoJogador( ){
+    public String receberMsg( ){
         String msg = "";
         try {
             msg = sServIn.readObject().toString();
@@ -256,6 +248,35 @@ class Jogador implements Runnable{
     }
 }
 
+class Dados{
+
+    int comando;
+    String msg;
+
+    public Dados( int cmd, String msg ){
+        this.comando = cmd;
+        this.msg = msg;
+    }
+
+    public int getComando() {
+        return comando;
+    }
+
+    public void setComando(int comando) {
+        this.comando = comando;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+
+    public void setMsg(String msg) {
+        this.msg = msg;
+    }
+
+
+
+}
 
 public class ServidorTCP{
 
@@ -263,17 +284,18 @@ public class ServidorTCP{
 
     private static int PONTOS = 0;
 
-    public static void espalharMensagemParaTodosJogadores(String msg){
+    public static void espalharMsg(String msg){
+        Gson gson = new Gson();
         for ( Jogador j: jogadores ) {
-            j.enviarMsgParaJogador(msg);
+            j.enviarMsg( gson.toJson(new Dados(1, msg)));
         }
     }
 
     //M�TODO PRINCIPAL DA CLASSE
     public static void main (String args[])	{
         jogadores = new ArrayList<Jogador>( );
+        Gson gson = new Gson();
         int PortaServidor = 7000;
-        BlockingQueue<Integer> queue = new LinkedBlockingQueue<>();
 
         try{
 
@@ -287,78 +309,151 @@ public class ServidorTCP{
                 Socket conSer = socktServ.accept();
                 System.out.println(" -S- Conectado ao cliente ->" + conSer.toString());
 
-                Jogador jogador = new Jogador(conSer, i > 1 ? "Time A" : "Time B", queue );
+                Jogador jogador = new Jogador(conSer, i % 2 == 0 ? "Time A" : "Time B" );
                 new Thread( jogador ).start( );
+
+                jogador.enviarMsg(gson.toJson(new Dados(1, "Você está no "+jogador.getTime())));
 
                 jogadores.add(jogador);
             }
 
             Baralho.embaralhar();
 
-            Gson gson = new Gson();
-            int vez = 0;
+
             Carta maiorCarta = new Carta();
-            String timeDaVez = "";
             int valorDaRodada = 2;
             int pontosTimeA = 0;
             int pontosTimeB = 0;
-            int truco = 2; // 2 valor normal, 4
 
             String[] rodada = new String[3];
 
+            String vencedor = "";
+
+            boolean estaTrucado = false;
+
             // INICIA O JOGO
-            while(PONTOS != 12){
-
+            while(pontosTimeA < 12 && pontosTimeB < 12){
+                // Distribui as 3 cartas para cada jogador
                 for( Jogador j : jogadores){
+                    j.enviarMsg(gson.toJson(new Dados(3, gson.toJson(new Carta( )))));
                     List<Carta> cartas = Baralho.sacarCartas();
+                    System.out.println("Enviando cartas para o jogador: "+j.getNome());
                     for (Carta c: cartas) {
-                        j.enviarCartaParaJogador(gson.toJson(c));
+                        Dados h = new Dados(0, gson.toJson(c));
+                        j.enviarMsg(gson.toJson(h));
+                        j.enviarMsg(gson.toJson(new Dados(1, "Aguardando jogadores...")));
                     }
                 }
+                espalharMsg("---------------------------------------------------");
+                espalharMsg("TIME A = "+pontosTimeA + " | TIME B = "+pontosTimeB);
+                espalharMsg("---------------------------------------------------");
 
+                // Inicia a rodada
+                loopPrincipal:
                 for(int i = 0; i<3; i++) {
-                    jogadores.get(vez).enviarMsgParaJogador("Escolha uma carta!");
-                    Carta carta = gson.fromJson(jogadores.get(vez).receberCartaDoJogador(), Carta.class);
-                    espalharMensagemParaTodosJogadores("Jogador: " + jogadores.get(vez).getNome() + "jogou " + carta.getValor() + "de " + carta.getNipe());
-                    maiorCarta = Carta.compararCartas(maiorCarta, carta);
-                    timeDaVez = jogadores.get(vez).getTime();
-                    rodada[i] = timeDaVez;
-                    if( i == 0){
-                        espalharMensagemParaTodosJogadores("Ponto do " + timeDaVez + " com a carta " + maiorCarta.getValor() + " de " + maiorCarta.getNipe());
-                    }else if (i == 1){
-                        if( rodada[0].equals(rodada[1])) {
-                            espalharMensagemParaTodosJogadores("Os pontos dessa rodada vão para o " + timeDaVez);
-                            break;
-                        }else{
-                            espalharMensagemParaTodosJogadores("Ponto do " + timeDaVez + " com a carta " + maiorCarta.getValor() + " de " + maiorCarta.getNipe());
-                        }
-                    }else if( i == 2){
-                            timeDaVez = rodada[0];
-                        espalharMensagemParaTodosJogadores("Os pontos dessa rodada vão para o "+timeDaVez);
+                    // Inicia o turno de cada jogador
+                    for(int vez = 0; vez<4; vez++) {
+                        Jogador j = jogadores.get(vez);
 
+                        // Pede o jogador para escolher uma carta
+                        System.out.println("Solicitando carta do jogador: " + j.getNome());
+                        j.enviarMsg(gson.toJson(new Dados(2, gson.toJson(new Carta()))));
+
+                        // Recebe a carta do jogador
+                        Carta carta = gson.fromJson(j.receberMsg(), Carta.class);
+
+                        // Verifica se propôs truco
+                        if(carta.getValor().equals("TRUCO")){
+                            carta = gson.fromJson(j.receberMsg(), Carta.class);
+                            if(!estaTrucado) {
+                                estaTrucado = true;
+                                espalharMsg("JOGADOR: " + j.getNome() + " do " + j.getTime() + " PROPÔS TRUCO");
+                                int acc = 0;
+
+                                // Recebe dos jogadores do time oposto se vai aceitar o truco ou não
+                                for (Jogador jj : jogadores) {
+                                    if (!jj.getTime().equals(j.getTime())) {
+                                        jj.enviarMsg(gson.toJson(new Dados(4, gson.toJson(new Carta()))));
+                                        acc = acc + Integer.parseInt(jj.receberMsg());
+                                    }
+                                }
+
+                                // Se os dois não aceitarem é encerrado o turno e quem trucou ganha
+                                if (acc != 2) {
+                                    vencedor = j.getTime();
+                                    espalharMsg("OS PONTOS DESSA RODADA VÃO PARA: " + vencedor);
+                                    break loopPrincipal;
+                                } else { // Se não, aumenta os pontos em 2
+                                    valorDaRodada = valorDaRodada + 2;
+                                    espalharMsg("A RODADA AGORA VALE " + valorDaRodada);
+                                }
+                            }else{
+                                j.enviarMsg(gson.toJson(new Dados(1, "-- O Jogo já está trucado! --")));
+                            }
+                        }
+                        System.out.println("Jogador: " + j.getNome() + " jogou " + carta.getValor() + " de " + carta.getNipe());
+
+                        // Mostra ela para todos os jogadores
+                        espalharMsg("JOGADOR: " + j.getNome() + " JOGOU " + carta.getValor() + " DE " + carta.getNipe());
+
+                        // Compara com a carta da rodada atual
+                        maiorCarta = Carta.compararCartas(maiorCarta, carta);
+                        if(maiorCarta.getValor().equals(carta.getValor()) && maiorCarta.getNipe().equals(carta.getNipe())) {
+                            rodada[i] = j.getTime();
+                        }
                     }
+                    // Ponto para o primeiro turno
+                    if( i == 0){
+                        espalharMsg("PONTO DO " + rodada[0] + " COM A CARTA " + maiorCarta.getValor() + " DE " + maiorCarta.getNipe());
+                    }else if (i == 1){
+                        if( rodada[0].equals(rodada[1])) { // Vencedor do turno se ganhar a 1ª e a 2ª
+                            espalharMsg("OS PONTOS DESSA RODADA VÃO PARA " + rodada[1]);
+                            vencedor = rodada[1];
+                            break loopPrincipal;
+                        }else{ // Ponto para o segundo turno
+                            espalharMsg("PONTO DO " + rodada[1] + " COM A CARTA " + maiorCarta.getValor() + " DE " + maiorCarta.getNipe());
+                        }
+                    }else if( i == 2){ // Vencedor se ganhar a 1ª e o 3ª ou 2ª e o 3ª
+                        if(rodada[0].equals(rodada[2]) || rodada[1].equals(rodada[2])){
+                            vencedor = rodada[2];
+                        }
+                        espalharMsg("OS PONTOS DESSA RODADA VÃO PARA "+rodada[2]);
+                    }
+
+                    // Reseta a maior carta
+                    maiorCarta = new Carta( );
                 }
-                if (timeDaVez.equals("Time A")) {
+
+                // Reseta o truco
+                estaTrucado = false;
+
+                // Soma os pontos ao placar
+                if (vencedor.equals("Time A")) {
                     pontosTimeA = pontosTimeA + valorDaRodada;
                 }else{
                     pontosTimeB = pontosTimeB + valorDaRodada;
                 }
+
+                // Valor da rodada se alguem propos Truco
                 valorDaRodada = 2;
-                maiorCarta = new Carta( );
+
+                // Re-embaralha
                 Baralho.embaralhar();
-                vez++;
-                vez = vez % 4;
+
             }
 
-            //FINALIZA A CONEXÃO
+            // Encerra a conexão dos jogadores
             for (Jogador j : jogadores) {
+                j.enviarMsg(gson.toJson(new Dados(5, "Obrigado por jogar!\nO vencedor foi "+ (pontosTimeA > pontosTimeB ? "Time A" : "Time B") )));
                 j.socket.close();
             }
+
+            // Fecha o servidor
             socktServ.close();
-            System.out.println(" -S- Conexao finalizada...");
+            System.out.println("Conexao finalizada...");
 
         }
-        catch(Exception e) //SE OCORRER ALGUMA EXCESS�O, ENT�O DEVE SER TRATADA (AMIGAVELMENTE)
+        catch(Exception e) // Caso aconteça algum erro
         {
             System.out.println(" -S- O seguinte problema ocorreu : \n" + e.toString());
         }
