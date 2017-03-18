@@ -2,12 +2,13 @@
 - Autor: Paulo Victor de Oliveira Leal
 
 ## Objetivo
-Implementação do jogo de Truco multithread com uso de sockets
-
-## Projeto desenvolvido no IntelliJ
+- Implementação do jogo de Truco com o uso de:
+    - Multithread 
+    - Sockets
 
 ## Observação
-São necessarios quatro clientes conectarem ao servidor para jogar
+- Projeto desenvolvido no IntelliJ
+- São necessarios quatro clientes conectarem ao servidor para jogar
 
 ## Compilação no terminal 
 - Copie os arquivos, para algum lugar de sua preferência:
